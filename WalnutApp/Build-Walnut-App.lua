@@ -15,13 +15,16 @@ project "WalnutApp"
       "../Walnut/Source",
       "../Walnut/Platform/GUI",
 
+      "../vendor/simavr",
+
       "%{IncludeDir.VulkanSDK}",
       "%{IncludeDir.glm}",
    }
 
     links
     {
-        "Walnut"
+        "Walnut",
+        "simavr",
     }
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")

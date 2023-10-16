@@ -21,3 +21,6 @@
 [submodule "vendor/yaml-cpp"]
 	path = vendor/yaml-cpp
 	url = https://github.com/TheCherno/yaml-cpp
+[submodule "vendor/simavr"]
+	path = vendor/simavr
+	url = https://github.com/Nuxar1/simavr.git

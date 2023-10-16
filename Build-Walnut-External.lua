@@ -17,6 +17,7 @@ group "Dependencies"
    include "vendor/imgui"
    include "vendor/glfw"
    include "vendor/yaml-cpp"
+   include "vendor/simavr"
 group ""
 
 group "Core"

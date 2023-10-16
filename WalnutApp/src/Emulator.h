@@ -6,7 +6,6 @@
 #include <simavr/lib_api.h>
 #include <simavr/sim/avr_ioport.h>
 #include <functional>
-#pragma comment(lib, "simavr.lib")
 
 class Emulator
 {
