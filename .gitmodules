@@ -4,7 +4,7 @@
 	branch = docking
 [submodule "vendor/imgui"]
 	path = vendor/imgui
-	url = https://github.com/Nuxar/imgui
+	url = https://github.com/Nuxar1/imgui
 	branch = docking
 [submodule "vendor/glfw"]
 	path = vendor/glfw
