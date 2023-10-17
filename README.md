@@ -2,10 +2,7 @@
 
 RwthEmulator is an AVR microchip emulator built to emulate a custom PCB using an ATmega644 microcontroller (or any other supported by simavr). This versatile tool allows developers to simulate various microcontroller features, such as LCD (4-bit DB only), buttons with interrupt support, and LEDs. Powered by simavr for CPU emulation and equipped with the Walnut GUI, RwthEmulator simplifies AVR microcontroller development. While it currently requires port configuration within the source code, I have plans to introduce runtime port changes in future releases, making the emulation process even more flexible and user-friendly.
 
-Currently supports Windows - with macOS and Linux support planned. Setup scripts support Visual Studio 2022 by default.
-
-![WalnutExample](https://hazelengine.com/images/ForestLauncherScreenshot.jpg)
-_<center>Forest Launcher - an application made with Walnut</center>_
+Currently supports Windows - with macOS and Linux support once Walnut supports it. Setup scripts support Visual Studio 2022 by default.
 
 ## Requirements
 - [Visual Studio 2022](https://visualstudio.com) (not strictly required, however included setup scripts only support this)
