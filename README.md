@@ -19,3 +19,11 @@ Once you've cloned, run `scripts/Setup.bat` to generate Visual Studio 2022 solut
 - [GLM](https://github.com/g-truc/glm) (included for convenience)
 - [simavr](https://github.com/buserror/simavr)
 - [libelf](https://github.com/WolfgangSt/libelf)
+
+## Todo
+
+- Runime pinout configuration
+- Add more modules
+- Disassembler
+- Breakpoints and step in/over/out
+- Microchip Studio debuggin support
