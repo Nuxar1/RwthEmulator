@@ -17,10 +17,6 @@ Once you've cloned, run `scripts/Setup.bat` to generate Visual Studio 2022 solut
 
 ### 3rd party libaries
 - [Walnut](https://github.com/StudioCherno/Walnut/tree/master)
-- [Dear ImGui](https://github.com/ocornut/imgui)
-- [GLFW](https://github.com/glfw/glfw)
-- [stb_image](https://github.com/nothings/stb)
-- [GLM](https://github.com/g-truc/glm) (included for convenience)
 - [simavr](https://github.com/buserror/simavr)
 - [libelf](https://github.com/WolfgangSt/libelf)
 
