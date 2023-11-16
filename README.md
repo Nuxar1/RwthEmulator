@@ -6,7 +6,7 @@ RwthEmulator is an AVR microchip emulator built to emulate a custom PCB using an
 https://github.com/Nuxar1/RwthEmulator/assets/67655795/494ddeb5-8ea3-4c5f-9cc4-ffc6aba51c7e
 
 
-Currently supports Windows - with macOS and Linux support once Walnut supports it. Setup scripts support Visual Studio 2022 by default.
+Currently supports Windows **and linux** - with macOS once Walnut supports it. Setup scripts support Visual Studio 2022 by default.
 
 ## Requirements
 - [Visual Studio 2022](https://visualstudio.com) (not strictly required, however included setup scripts only support this)
