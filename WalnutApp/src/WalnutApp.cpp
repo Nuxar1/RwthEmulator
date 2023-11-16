@@ -7,6 +7,7 @@
 #include "IOPort.h"
 #include "LCD.h"
 
+#include <GLFW/glfw3.h>
 #if defined(_WIN32) || defined(_WIN64)
 #define NOMINMAX
 #include <Windows.h>
@@ -18,8 +19,6 @@
 #else
 #define sprintf_s sprintf
 #endif
-
-#include <GLFW/glfw3.h>
 
 Emulator g_emulator;
 
@@ -431,7 +430,9 @@ std::string OpenFileName() {
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv) {
 	Walnut::ApplicationSpecification spec;
 	spec.Name = "RWTH PSP - Emulator";
+#ifdef WL_PLATFORM_WINDOWS // only on windows
 	spec.CustomTitlebar = true;
+#endif
 
 	Walnut::Application* app = new Walnut::Application(spec);
 	std::shared_ptr<MainLayer> mainLayer = std::make_shared<MainLayer>();

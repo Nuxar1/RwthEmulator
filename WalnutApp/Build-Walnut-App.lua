@@ -27,7 +27,7 @@ project "WalnutApp"
         "simavr",
         "ImGui",
         "GLFW",
-        "vulkan",
+        "%{Library.Vulkan}",
     }
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")

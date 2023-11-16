@@ -11,7 +11,11 @@ LibraryDir = {}
 LibraryDir["VulkanSDK"] = "%{VULKAN_SDK}/Lib"
 
 Library = {}
-Library["Vulkan"] = "%{LibraryDir.VulkanSDK}/vulkan-1.lib"
+if os.host() == "windows" then
+    Library["Vulkan"] = "%{LibraryDir.VulkanSDK}/vulkan-1.lib"
+else
+    Library["Vulkan"] = "vulkan"
+end
 
 group "Dependencies"
    include "vendor/imgui"
