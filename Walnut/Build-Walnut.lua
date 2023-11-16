@@ -36,8 +36,8 @@ project "Walnut"
        "%{Library.Vulkan}",
    }
 
-   targetdir ("../../bin/" .. outputdir .. "/%{prj.name}")
-   objdir ("../../bin-int/" .. outputdir .. "/%{prj.name}")
+   targetdir ("../bin/" .. outputdir .. "/%{prj.name}")
+   objdir ("../bin-int/" .. outputdir .. "/%{prj.name}")
 
    filter "system:windows"
       systemversion "latest"
