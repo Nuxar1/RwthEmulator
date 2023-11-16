@@ -1,12 +1,13 @@
 #pragma once
 
+using port_t = std::bitset<8>;
+
 template <char NAME>
 class IOPort {
 protected:
 	Emulator& emulator;
 	IOPort(Emulator& emulator) : emulator(emulator) {}
 
-	using port_t = std::bitset<8>;
 	static constexpr uint8_t PIN = Emulator::GetPortIndex(NAME);
 	static constexpr uint8_t DDR = PIN + 1;
 	static constexpr uint8_t PORT = PIN + 2;

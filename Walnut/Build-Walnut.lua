@@ -20,7 +20,7 @@ project "Walnut"
       "Platform/GUI",
 
       "../vendor/imgui",
-      "../vendor/glfw/include",
+      "../vendor/GLFW/include",
       "../vendor/stb_image",
 
       "%{IncludeDir.VulkanSDK}",
@@ -42,6 +42,10 @@ project "Walnut"
    filter "system:windows"
       systemversion "latest"
       defines { "WL_PLATFORM_WINDOWS" }
+   
+   filter "system:linux"
+      systemversion "latest"
+      defines { "WL_PLATFORM_LINUX" }
 
    filter "configurations:Debug"
       defines { "WL_DEBUG" }

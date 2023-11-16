@@ -2,6 +2,7 @@
 #include <bitset>
 #include <filesystem>
 #include <thread>
+#include <atomic>
 
 #include <simavr/lib_api.h>
 #include <simavr/sim/avr_ioport.h>

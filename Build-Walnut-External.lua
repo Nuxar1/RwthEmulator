@@ -15,7 +15,7 @@ Library["Vulkan"] = "%{LibraryDir.VulkanSDK}/vulkan-1.lib"
 
 group "Dependencies"
    include "vendor/imgui"
-   include "vendor/glfw"
+   include "vendor/GLFW"
    include "vendor/yaml-cpp"
    include "vendor/simavr"
 group ""

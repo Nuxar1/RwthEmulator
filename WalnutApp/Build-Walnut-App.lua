@@ -1,7 +1,7 @@
 project "WalnutApp"
    kind "ConsoleApp"
    language "C++"
-   cppdialect "C++17"
+   cppdialect "C++20"
    targetdir "bin/%{cfg.buildcfg}"
    staticruntime "off"
 
@@ -10,7 +10,7 @@ project "WalnutApp"
    includedirs
    {
       "../vendor/imgui",
-      "../vendor/glfw/include",
+      "../vendor/GLFW/include",
 
       "../Walnut/Source",
       "../Walnut/Platform/GUI",
@@ -25,6 +25,9 @@ project "WalnutApp"
     {
         "Walnut",
         "simavr",
+        "ImGui",
+        "GLFW",
+        "vulkan",
     }
 
    targetdir ("../bin/" .. outputdir .. "/%{prj.name}")

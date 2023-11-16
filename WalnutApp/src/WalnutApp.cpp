@@ -7,14 +7,19 @@
 #include "IOPort.h"
 #include "LCD.h"
 
+#if defined(_WIN32) || defined(_WIN64)
 #define NOMINMAX
 #include <Windows.h>
 #undef SetPort
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+#else
+#define sprintf_s sprintf
+#endif
+
+#include <GLFW/glfw3.h>
 
 Emulator g_emulator;
 
@@ -255,7 +260,7 @@ private:
 
 			};
 
-		std::bitset<8> led_port = GetPort();
+		std::bitset<8> led_port = this->GetPort();
 		for (int i = 0; i < 8; i++) {
 			led(led_port.test(i));
 			ImGui::SameLine();
@@ -272,12 +277,12 @@ public:
 
 	ButtonsLayer() : Walnut::Layer(), IOPort<NAME>(g_emulator) {
 		auto init_buttons = [this]() -> void {
-			SetPin(0, 0);
-			SetPin(1, 0);
-			SetPin(6, 0);
-			SetPin(7, 0);
+			this->SetPin(0, 0);
+			this->SetPin(1, 0);
+			this->SetPin(6, 0);
+			this->SetPin(7, 0);
 			};
-		emulator.OnReset(init_buttons);
+		this->emulator.OnReset(init_buttons);
 	}
 	virtual void OnUIRender() override {
 		if (!m_open) return;
@@ -301,22 +306,22 @@ public:
 		ImGui::Text("green = released, red = pressed.");
 		if (button("B1", m_buttonsPressed.test(0))) {
 			m_buttonsPressed.flip(0);
-			SetPin(0, !m_buttonsPressed.test(0));
+			this->SetPin(0, !m_buttonsPressed.test(0));
 		}
 		ImGui::SameLine();
 		if (button("B2", m_buttonsPressed.test(1))) {
 			m_buttonsPressed.flip(1);
-			SetPin(1, !m_buttonsPressed.test(1));
+			this->SetPin(1, !m_buttonsPressed.test(1));
 		}
 		ImGui::SameLine();
 		if (button("B3", m_buttonsPressed.test(6))) {
 			m_buttonsPressed.flip(6);
-			SetPin(6, !m_buttonsPressed.test(6));
+			this->SetPin(6, !m_buttonsPressed.test(6));
 		}
 		ImGui::SameLine();
 		if (button("B4", m_buttonsPressed.test(7))) {
 			m_buttonsPressed.flip(7);
-			SetPin(7, !m_buttonsPressed.test(7));
+			this->SetPin(7, !m_buttonsPressed.test(7));
 		}
 
 		ImGui::EndGroupPanel();
@@ -394,6 +399,7 @@ private:
 	}
 };
 
+#if defined(_WIN32) || defined(_WIN64)
 std::string OpenFileName() {
 	char filename[MAX_PATH];
 	OPENFILENAMEA ofn;
@@ -412,6 +418,15 @@ std::string OpenFileName() {
 	else
 		return "";
 }
+#else
+std::string OpenFileName() {
+	char filename[1024] = { 0 };
+	FILE* fp = popen("zenity --file-selection", "r");
+	fgets(filename, 1024, fp);
+	pclose(fp);
+	return filename;
+}
+#endif
 
 Walnut::Application* Walnut::CreateApplication(int argc, char** argv) {
 	Walnut::ApplicationSpecification spec;

@@ -116,7 +116,6 @@ namespace Walnut
 			}
 		}
 
-		template<>
 		void ReadArray(std::vector<std::string>& array, uint32_t size)
 		{
 			if (size == 0)

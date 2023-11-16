@@ -1,5 +1,12 @@
 #include "LCD.h"
+#include <cstring>
+#include <bit>
 
+#if defined(_WIN32) || defined(_WIN64)
+#define bswap_64(x) _byteswap_uint64(x)
+#else
+#define bswap_64(x) __builtin_bswap64(x)
+#endif
 
 template<char NAME>
 LCDEmulator<NAME>::LCDEmulator(Emulator& emulator) : IOPort<NAME>(emulator) {
@@ -22,7 +29,7 @@ void LCDEmulator<NAME>::Tick() {
 	if (fourBitMode) {
 		nibbleSelect = !nibbleSelect;
 		if (pendingWrite) {
-			SetPullUpPin(0xf, lowNibbleToWrite.to_ulong() & 0xf); // set low nibble to output
+			this->SetPullUpPin(0xf, lowNibbleToWrite.to_ulong() & 0xf); // set low nibble to output
 			pendingWrite = false;
 		}
 		if (nibbleSelect && !RW) // when writing, wait for both nibbles to be read before responding
@@ -105,7 +112,7 @@ void LCDEmulator<NAME>::Reset() {
 
 template<char NAME>
 void LCDEmulator<NAME>::ReadPort() {
-	port_t port = GetPort();
+	port_t port = this->GetPort();
 	if (nibbleSelect && fourBitMode) {
 		lowNibble = port.to_ulong() & 0b1111;
 	} else {
@@ -118,7 +125,7 @@ void LCDEmulator<NAME>::ReadPort() {
 
 template<char NAME>
 void LCDEmulator<NAME>::WritePin(data_bus_t port) {
-	SetPullUpPin(0xf, (port.to_ulong() >> 4) & 0xf); // set high nibble to output
+	this->SetPullUpPin(0xf, (port.to_ulong() >> 4) & 0xf); // set high nibble to output
 
 	// low nibble will be set to output when on the next tick
 	lowNibbleToWrite = port.to_ulong() & 0xf;
@@ -359,7 +366,7 @@ character_t LCDEmulator<NAME>::ReadCharacterFromData(address_t address, const ui
 	uint64_t qword = *(uint64_t*)&data[bit / 8];
 	uint8_t bit_in_qword = bit % 8;
 	uint8_t bits_left = 64  - 50 - bit_in_qword;
-	qword = _byteswap_uint64(qword);
+	qword = bswap_64(qword);
 	qword >>= bits_left;
 	//qword &= (1ull << 50ull) - 1ull;
 	character_t character = qword;
