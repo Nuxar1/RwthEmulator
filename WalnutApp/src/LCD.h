@@ -1,22 +1,23 @@
 #pragma once
 #include "Emulator.h"
-#include "IOPort.h"
 #include "LCDROM.h"
+#include "IoConnector.h"
 #include <array>
 
 // as per specification https://cdn-reichelt.de/documents/datenblatt/A500/DEM16217SYH-LY.pdf
 // 4 bit mode only bcs im lazy and thats what the RWTH evaluation board uses
+// if you want to use 8 bit mode, add a template parameter and change the code accordingly
+using io_port_t = std::bitset<7>;
 using data_bus_t = std::bitset<8>;
 using command_t = std::bitset<10>;
 using address_t = uint8_t;
 using character_t = std::bitset<5 * 10>;
-enum class Port : uint8_t
+enum class Port : io_pin_t
 {
 	D4, D5, D6, D7,
 	RS,
 	EN,
 	RW,
-	FREE, // not connected
 };
 enum class Command : uint8_t
 {
@@ -39,14 +40,16 @@ enum class Instruction : uint8_t
 	ReadDataFromRAM,
 };
 
-template <char NAME>
-class LCDEmulator : IOPort<NAME>
+class LCDEmulator
 {
+	Emulator& emulator;
+	IoConnector<7> io;
 public:
-	LCDEmulator(Emulator& emulator);
+	LCDEmulator(Emulator& emulator, std::array<connector_t, 7> connector);
 
 	std::array<std::array<character_t, 16>, 2> GetDisplay();
 private:
+	static void EnablePulse(avr_irq_t* irq, uint32_t value, void* param);
 	void Tick();
 	void Reset();
 
@@ -77,8 +80,8 @@ private:
 	character_t ReadCharacterFromData(address_t address, const uint8_t* data);
 	character_t GetCharacter(address_t address);
 
-	address_t DDRAM[0x80] = { 0 }; // 80 bytes of DDRAM
-	uint8_t CGRAM[0x64] = { 0 }; // 64 bytes of CGRAM
+	address_t DDRAM[80] = { 0 }; // 80 bytes of DDRAM
+	uint8_t CGRAM[64] = { 0 }; // 64 bytes of CGRAM
 
 	address_t DDRAMAddress = 0; // DDRAM address counter
 	address_t CGRAMAddress = 0; // CGRAM address counter

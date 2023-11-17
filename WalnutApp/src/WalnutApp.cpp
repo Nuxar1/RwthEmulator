@@ -4,8 +4,8 @@
 #include "Walnut/Image.h"
 #include "Walnut/UI/UI.h"
 #include "Emulator.h"
-#include "IOPort.h"
 #include "LCD.h"
+#include "IoConnector.h"
 
 #include <GLFW/glfw3.h>
 #if defined(_WIN32) || defined(_WIN64)
@@ -127,7 +127,8 @@ public:
 				ImGui::Text("port %c", 'A' + i); ImGui::TableNextColumn();
 				for (uint8_t j = 0; j < 3; j++) { // PORT - DDR - PIN
 					uint8_t port_num = i * 3 + j;
-					ImGui::Text("%s", g_emulator.GetPort(port_num).to_string().c_str()); ImGui::TableNextColumn();
+					ImGui::Text("%s", g_emulator.GetIORegister(port_num).to_string().c_str());
+					ImGui::TableNextColumn();
 				}
 			}
 
@@ -185,10 +186,10 @@ private:
 					ImGui::TableNextRow();
 					ImGui::TableNextColumn();
 
-					auto address = row * num_bytes_per_row;
+					int address = row * num_bytes_per_row;
 					char label[32];
 					char address_text[32];
-					sprintf_s(label, "##%p", address);
+					sprintf_s(label, "##%x", address);
 					sprintf_s(address_text, "%02X", address);
 					ImGui::InputText(label, address_text, sizeof(address_text), ImGuiInputTextFlags_ReadOnly);
 					//ImGui::Text("0x%08X", address);
@@ -219,13 +220,20 @@ private:
 	}
 };
 
-template <char NAME>
-class LEDsLayer : public Walnut::Layer, IOPort<NAME>
+class LEDsLayer : public Walnut::Layer
 {
+	const char* m_names[8] = { "LED1", "LED2", "LED3", "LED4", "LED5", "LED6", "LED7", "LED8" };
+	std::array<connector_t, 8> m_leds = { { { 'A', 0, 1 }, { 'A', 1, 1 }, { 'A', 2, 1 }, { 'A', 3, 1 }, { 'A', 4, 1 }, { 'A', 5, 1 }, { 'A', 6, 1 }, { 'A', 7, 1 } } };
+	IoConnector<8> m_io;
 public:
 	bool m_open = true;
 
-	LEDsLayer() : Walnut::Layer(), IOPort<NAME>(g_emulator) {}
+	LEDsLayer() : Walnut::Layer(), m_io(g_emulator, m_names) {
+		auto init_leds = [this]() -> void {
+			m_io.Connect(m_leds);
+			};
+		g_emulator.OnReset(init_leds);
+	}
 	virtual void OnUIRender() override {
 		if (!m_open) return;
 		ImGui::Begin("LEDs", &m_open);
@@ -259,7 +267,7 @@ private:
 
 			};
 
-		std::bitset<8> led_port = this->GetPort();
+		std::bitset<8> led_port = m_io.GetPinMask();
 		for (int i = 0; i < 8; i++) {
 			led(led_port.test(i));
 			ImGui::SameLine();
@@ -268,20 +276,20 @@ private:
 	}
 };
 
-template <char NAME>
-class ButtonsLayer : public Walnut::Layer, IOPort<NAME>
+class ButtonsLayer : public Walnut::Layer
 {
+	const char* m_names[4] = { "B1", "B2", "B3", "B4" };
+	// https://stackoverflow.com/a/8192275
+	std::array<connector_t, 4> m_buttons = { { { 'C', 0, 1 }, { 'C', 1, 1 }, { 'C', 6, 1 }, { 'C', 7, 1 } } };
+	IoConnector<4> m_io;
 public:
 	bool m_open = true;
 
-	ButtonsLayer() : Walnut::Layer(), IOPort<NAME>(g_emulator) {
+	ButtonsLayer() : Walnut::Layer(), m_io(g_emulator, m_names) {
 		auto init_buttons = [this]() -> void {
-			this->SetPin(0, 0);
-			this->SetPin(1, 0);
-			this->SetPin(6, 0);
-			this->SetPin(7, 0);
+			m_io.Connect(m_buttons);
 			};
-		this->emulator.OnReset(init_buttons);
+		g_emulator.OnReset(init_buttons);
 	}
 	virtual void OnUIRender() override {
 		if (!m_open) return;
@@ -292,53 +300,46 @@ public:
 
 		ImGui::BeginGroupPanel("Buttons");
 
-		const auto button = [&](const char* name, bool value) -> bool {
+		const auto button = [&](const char* name, int index) -> bool {
+			bool& value = m_buttonsPressed[index];
 			ImGui::PushStyleColor(ImGuiCol_Button, value ? ImVec4(1.f, 0, 0, .2f) : ImVec4(0, 1.f, 0, .2f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, value ? ImVec4(1.f, 0, 0, .4f) : ImVec4(0, 1.f, 0, .4f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonActive, value ? ImVec4(1.f, 0, 0, .6f) : ImVec4(0, 1.f, 0, .6f));
 			auto result = ImGui::Button(name);
+			if (result) {
+				value = !value;
+				m_io.SetPin(index, !value);
+			}
 			ImGui::PopStyleColor(3);
 			return result;
 			};
 
 		ImGui::Text("Click once to press, click again to release.");
 		ImGui::Text("green = released, red = pressed.");
-		if (button("B1", m_buttonsPressed.test(0))) {
-			m_buttonsPressed.flip(0);
-			this->SetPin(0, !m_buttonsPressed.test(0));
-		}
+		button("B1", 0);
 		ImGui::SameLine();
-		if (button("B2", m_buttonsPressed.test(1))) {
-			m_buttonsPressed.flip(1);
-			this->SetPin(1, !m_buttonsPressed.test(1));
-		}
+		button("B2", 1);
 		ImGui::SameLine();
-		if (button("B3", m_buttonsPressed.test(6))) {
-			m_buttonsPressed.flip(6);
-			this->SetPin(6, !m_buttonsPressed.test(6));
-		}
+		button("B3", 2);
 		ImGui::SameLine();
-		if (button("B4", m_buttonsPressed.test(7))) {
-			m_buttonsPressed.flip(7);
-			this->SetPin(7, !m_buttonsPressed.test(7));
-		}
+		button("B4", 3);
 
 		ImGui::EndGroupPanel();
 
 		ImGui::End();
 	}
 private:
-	std::bitset<8> m_buttonsPressed;
+	bool m_buttonsPressed[4] = { 0 };
 };
 
-template <char NAME>
 class LCDLayer : public Walnut::Layer
 {
-	LCDEmulator<NAME> m_lcd;
+	std::array<connector_t, 7> m_lcd_connection = { { { 'B', 0, 1 }, { 'B', 1, 1 }, { 'B', 2, 1 }, { 'B', 3, 1 }, { 'B', 4, 1 }, { 'B', 5, 1 }, { 'B', 6, 1 } } };
+	LCDEmulator m_lcd;
 public:
 	bool m_open = true;
 
-	LCDLayer() : Walnut::Layer(), m_lcd(g_emulator) {}
+	LCDLayer() : Walnut::Layer(), m_lcd(g_emulator, m_lcd_connection) {}
 	virtual void OnUIRender() override {
 		if (!m_open) return;
 		ImGui::Begin("LCD", &m_open);
@@ -438,9 +439,9 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv) {
 	std::shared_ptr<MainLayer> mainLayer = std::make_shared<MainLayer>();
 	std::shared_ptr<PortsLayer> portsLayer = std::make_shared<PortsLayer>();
 	std::shared_ptr<MemoryLayer> memoryLayer = std::make_shared<MemoryLayer>();
-	std::shared_ptr<ButtonsLayer<'C'>> buttonsLayer = std::make_shared<ButtonsLayer<'C'>>();
-	std::shared_ptr<LEDsLayer<'A'>> ledsLayer = std::make_shared<LEDsLayer<'A'>>();
-	std::shared_ptr<LCDLayer<'B'>> lcdLayer = std::make_shared<LCDLayer<'B'>>();
+	std::shared_ptr<ButtonsLayer> buttonsLayer = std::make_shared<ButtonsLayer>();
+	std::shared_ptr<LEDsLayer> ledsLayer = std::make_shared<LEDsLayer>();
+	std::shared_ptr<LCDLayer> lcdLayer = std::make_shared<LCDLayer>();
 
 	if (argc > 1) {
 		std::string path = argv[1];

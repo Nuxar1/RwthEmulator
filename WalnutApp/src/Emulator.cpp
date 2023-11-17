@@ -1,9 +1,10 @@
 #include "Emulator.h"
 
-Emulator::Emulator() {
+Emulator::Emulator() : io_manager(nullptr) {
 	//avr = avr_make_mcu_from_maker(&mega644);
 	avr = avr_make_mcu_by_name("atmega644");
 	avr_init(avr);
+	io_manager = IoManager<4>(avr);
 }
 
 Emulator::~Emulator() {
@@ -29,15 +30,16 @@ bool Emulator::LoadProgram(std::filesystem::path path) {
 
 void Emulator::Reset() {
 	Stop();
+	avr_reset(avr);
+	io_manager.OnReset();
 	for (auto& callback : reset_callbacks) {
 		callback();
 	};
-	avr_reset(avr);
 }
 
 void Emulator::SingleStep() {
 	Stop();
-	avr_run(avr);
+	Tick();
 }
 
 void Emulator::Run() {
@@ -46,7 +48,7 @@ void Emulator::Run() {
 	run_thread = std::thread([this]() {
 		running = true;
 		while (running) {
-			avr_run(avr);
+			Tick();
 		}
 		});
 }
@@ -59,31 +61,78 @@ void Emulator::Stop() {
 }
 
 std::bitset<8> Emulator::GetRegister(uint8_t index) {
+	AvrLockGuard avr_mutex(this->avr_mutex, this->run_thread);
+
 	return std::bitset<8>(avr->data[index]);
 }
 
-std::bitset<8> Emulator::GetPort(uint8_t index) {
+std::bitset<32> Emulator::GetPc() {
+	return std::bitset<32>(avr->pc / 2); // pc is in words (2 bytes). simavr... why?
+}
+
+std::bitset<8> Emulator::GetIORegister(uint8_t index) {
+	AvrLockGuard avr_mutex(this->avr_mutex, this->run_thread);
+
 	return std::bitset<8>(avr->data[AVR_IO_TO_DATA(index)]);
 }
 
-void Emulator::SetPortPin(char name, uint8_t pin, uint8_t val) {
-	avr_raise_irq(avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ(name), pin), val);
+bool Emulator::GetPin(char name, uint8_t pin) {
+	return GetIORegister(GetPortIndex(name)).test(pin);
 }
 
-void Emulator::SetPortPullupPin(char name, uint8_t mask, uint8_t val) {
-	avr_ioport_external_t io_ext;
-	io_ext.name = name;
-	io_ext.mask = mask;
-	io_ext.value = val;
-	avr_ioctl(avr, AVR_IOCTL_IOPORT_SET_EXTERNAL(name), &io_ext);
+avr_irq_t* Emulator::GetIrq(char name, uint8_t pin) {
+	return avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ(name), pin);
 }
 
-void Emulator::AddCallback(char name, uint8_t pin, avr_irq_notify_t callback, void* param) {
+avr_irq_t* Emulator::AllocateIrq(uint32_t count, const char** names) {
+	return avr_alloc_irq(&avr->irq_pool, 0, count, names);
+}
+
+void Emulator::ConnectIrq(avr_irq_t* irq, avr_irq_t* other) {
+	avr_connect_irq(irq, other);
+}
+
+void Emulator::BiConnectIrq(avr_irq_t* irq, avr_irq_t* other) {
+	avr_connect_irq(irq, other);
+	avr_connect_irq(other, irq);
+}
+
+void Emulator::DisconnectIrq(avr_irq_t* irq, avr_irq_t* other) {
+	avr_unconnect_irq(irq, other);
+}
+
+void Emulator::BiDisconnectIrq(avr_irq_t* irq, avr_irq_t* other) {
+	avr_unconnect_irq(irq, other);
+	avr_unconnect_irq(other, irq);
+}
+
+void Emulator::RaiseIrq(avr_irq_t* irq, bool value) {
+	avr_raise_irq(irq, value);
+}
+
+void Emulator::AddCallback(avr_irq_t* irq, avr_irq_notify_t callback, void* param) {
 	avr_irq_notify_t notify = { callback };
-	avr_irq_register_notify(avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ(name), pin), notify, param);
+	avr_irq_register_notify(irq, notify, param);
 }
 
-void Emulator::RemoveCallback(char name, uint8_t pin, avr_irq_notify_t callback, void* param) {
+void Emulator::RemoveCallback(avr_irq_t* irq, avr_irq_notify_t callback, void* param) {
 	avr_irq_notify_t notify = { callback };
-	avr_irq_unregister_notify(avr_io_getirq(avr, AVR_IOCTL_IOPORT_GETIRQ(name), pin), notify, param);
+	avr_irq_unregister_notify(irq, notify, param);
+}
+
+void Emulator::RegisterTimer(avr_cycle_count_t when, avr_cycle_timer_t timer, void* param) {
+	avr_cycle_timer_t t = { timer };
+	avr_cycle_timer_register(avr, when, t, param);
+}
+
+void Emulator::Tick() {
+	try {
+		avr_run(avr);
+	} catch (std::exception& e) {
+		// in new thread since we cant join our own thread
+		std::thread([this, e]() {
+			Reset();
+			}).detach();
+			printf("Exception: %s\n", e.what());
+	}
 }
