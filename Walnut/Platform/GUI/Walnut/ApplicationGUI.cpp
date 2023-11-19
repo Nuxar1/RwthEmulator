@@ -683,6 +683,7 @@ namespace Walnut {
 		ImGui::SetCursorPos(ImVec2(windowPadding.x, windowPadding.y + titlebarVerticalOffset)); // Reset cursor pos
 		// DEBUG DRAG BOUNDS
 		// fgDrawList->AddRect(ImGui::GetCursorScreenPos(), ImVec2(ImGui::GetCursorScreenPos().x + w - buttonsAreaWidth, ImGui::GetCursorScreenPos().y + titlebarHeight), UI::Colors::Theme::invalidPrefab);
+		ImGui::SetNextItemAllowOverlap();
 		ImGui::InvisibleButton("##titleBarDragZone", ImVec2(w - buttonsAreaWidth, titlebarHeight));
 
 		m_TitleBarHovered = ImGui::IsItemHovered();
@@ -699,7 +700,6 @@ namespace Walnut {
 		{
 			ImGui::SuspendLayout();
 			{
-				ImGui::SetItemAllowOverlap();
 				const float logoHorizontalOffset = 16.0f * 2.0f + 48.0f + windowPadding.x;
 				ImGui::SetCursorPos(ImVec2(logoHorizontalOffset, 6.0f + titlebarVerticalOffset));
 				UI_DrawMenubar();
