@@ -11,20 +11,6 @@
 
 #include "IoManager.h"
 
-class AvrLockGuard {
-	std::thread& run_thread;
-	std::mutex& mutex;
-public:
-	AvrLockGuard(std::mutex& mutex, std::thread& run_thread) : mutex(mutex), run_thread(run_thread) {
-		if (run_thread.get_id() != std::this_thread::get_id())
-			mutex.lock();
-	}
-	~AvrLockGuard() {
-		if (run_thread.get_id() != std::this_thread::get_id())
-			mutex.unlock();
-	}
-};
-
 class Emulator
 {
 public:

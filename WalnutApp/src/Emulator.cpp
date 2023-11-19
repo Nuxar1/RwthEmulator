@@ -61,8 +61,6 @@ void Emulator::Stop() {
 }
 
 std::bitset<8> Emulator::GetRegister(uint8_t index) {
-	AvrLockGuard avr_mutex(this->avr_mutex, this->run_thread);
-
 	return std::bitset<8>(avr->data[index]);
 }
 
@@ -71,8 +69,6 @@ std::bitset<32> Emulator::GetPc() {
 }
 
 std::bitset<8> Emulator::GetIORegister(uint8_t index) {
-	AvrLockGuard avr_mutex(this->avr_mutex, this->run_thread);
-
 	return std::bitset<8>(avr->data[AVR_IO_TO_DATA(index)]);
 }
 
