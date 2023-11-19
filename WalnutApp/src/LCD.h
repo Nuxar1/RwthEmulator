@@ -43,15 +43,14 @@ enum class Instruction : uint8_t
 class LCDEmulator
 {
 	Emulator& emulator;
-	IoConnector<7> io;
+	IoConnector<7>& io;
 public:
-	LCDEmulator(Emulator& emulator, std::array<connector_t, 7> connector);
+	LCDEmulator(Emulator& emulator, IoConnector<7>& io);
 
 	std::array<std::array<character_t, 16>, 2> GetDisplay();
 private:
 	static void EnablePulse(avr_irq_t* irq, uint32_t value, void* param);
 	void Tick();
-	void Reset();
 
 	void ReadPort();
 	void WritePin(data_bus_t port);

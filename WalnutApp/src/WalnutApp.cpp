@@ -334,12 +334,19 @@ private:
 
 class LCDLayer : public Walnut::Layer
 {
+	const char* m_lcd_pins[7] = { "=lcd.D4", "=lcd.D5", "=lcd.D6", "=lcd.D7", "=lcd.RS", "=lcd.EN", "=lcd.RW" };
 	std::array<connector_t, 7> m_lcd_connection = { { { 'B', 0, 1 }, { 'B', 1, 1 }, { 'B', 2, 1 }, { 'B', 3, 1 }, { 'B', 4, 1 }, { 'B', 5, 1 }, { 'B', 6, 1 } } };
+	IoConnector<7> m_io;
 	LCDEmulator m_lcd;
 public:
 	bool m_open = true;
 
-	LCDLayer() : Walnut::Layer(), m_lcd(g_emulator, m_lcd_connection) {}
+	LCDLayer() : Walnut::Layer(), m_io(g_emulator, m_lcd_pins), m_lcd(g_emulator, m_io) {
+		auto init_lcd = [this]() -> void {
+			m_io.Connect(m_lcd_connection);
+			};
+		g_emulator.OnReset(init_lcd);
+	}
 	virtual void OnUIRender() override {
 		if (!m_open) return;
 		ImGui::Begin("LCD", &m_open);

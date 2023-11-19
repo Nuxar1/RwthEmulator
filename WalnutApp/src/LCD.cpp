@@ -8,14 +8,8 @@
 #define bswap_64(x) __builtin_bswap64(x)
 #endif
 
-const char* lcd_pins[] = { "=lcd.D4", "=lcd.D5", "=lcd.D6", "=lcd.D7", "=lcd.RS", "=lcd.EN", "=lcd.RW" };
-
-LCDEmulator::LCDEmulator(Emulator& emulator, std::array<connector_t, 7> connector) : io(emulator, lcd_pins), emulator(emulator) {
-	// reset is also called when loading a new program.
-	emulator.OnReset([this, connector]() {
-		io.Connect(connector);
-		Reset();
-		});
+LCDEmulator::LCDEmulator(Emulator& emulator, IoConnector<7>& io) : io(io), emulator(emulator) {
+	io.AddCallback((io_pin_t)Port::EN, EnablePulse, this);
 }
 
 void LCDEmulator::EnablePulse(avr_irq_t* irq, uint32_t value, void* param) {
@@ -86,38 +80,6 @@ void LCDEmulator::Tick() {
 	}
 }
 
-void LCDEmulator::Reset() {
-	// set all registers to 0
-	memset(DDRAM, 0, sizeof(DDRAM));
-	memset(CGRAM, 0, sizeof(CGRAM));
-	DDRAMAddress = 0;
-	setCGRAMAddress = false;
-	cursorAddress = 0;
-	displayShift = 0;
-	setCGRAMAddress = false;
-	initCounter = 0;
-	busy = false;
-	fourBitMode = false;
-	twoLineMode = false;
-	fiveBySevenDots = false;
-	display = false;
-	cursor = false;
-	blink = false;
-	increment = false;
-	shift = false;
-	lowNibble = 0;
-	highNibble = 0;
-	nibbleSelect = false;
-	RS = false;
-	RW = false;
-	EN = false;
-	lowNibbleToWrite = 0;
-	pendingWrite = false;
-
-	// when reset the callbacks are cleared so we need to add them again
-	io.AddCallback((io_pin_t)Port::EN, EnablePulse, this);
-}
-
 void LCDEmulator::ReadPort() {
 	io_port_t port = io.GetPinMask();
 	if (nibbleSelect && fourBitMode) {
@@ -162,7 +124,6 @@ Instruction LCDEmulator::GetInstruction(command_t command) {
 }
 
 void LCDEmulator::DisplayClear(command_t command) {
-	printf("DisplayClear\n");
 	memset(DDRAM, ' ', sizeof(DDRAM));
 	DDRAMAddress = 0;
 	setCGRAMAddress = false;
@@ -171,7 +132,6 @@ void LCDEmulator::DisplayClear(command_t command) {
 }
 
 void LCDEmulator::ReturnHome(command_t command) {
-	printf("ReturnHome\n");
 	DDRAMAddress = 0;
 	setCGRAMAddress = false;
 	cursorAddress = 0;
@@ -179,7 +139,6 @@ void LCDEmulator::ReturnHome(command_t command) {
 }
 
 void LCDEmulator::EntryModeSet(command_t command) {
-	printf("EntryModeSet\n");
 	bool I_D = command[static_cast<uint8_t>(Command::D1)];
 	bool S = command[static_cast<uint8_t>(Command::D0)];
 	increment = I_D;
@@ -187,7 +146,6 @@ void LCDEmulator::EntryModeSet(command_t command) {
 }
 
 void LCDEmulator::DisplayOnOffControl(command_t command) {
-	printf("DisplayOnOffControl\n");
 	bool D = command[static_cast<uint8_t>(Command::D2)];
 	bool C = command[static_cast<uint8_t>(Command::D1)];
 	bool B = command[static_cast<uint8_t>(Command::D0)];
@@ -197,7 +155,6 @@ void LCDEmulator::DisplayOnOffControl(command_t command) {
 }
 
 void LCDEmulator::CursorDisplayShift(command_t command) {
-	printf("CursorDisplayShift\n");
 	bool S_C = command[static_cast<uint8_t>(Command::D3)];
 	bool R_L = command[static_cast<uint8_t>(Command::D2)];
 	if (S_C) {
@@ -207,7 +164,6 @@ void LCDEmulator::CursorDisplayShift(command_t command) {
 }
 
 void LCDEmulator::FunctionSet(command_t command) {
-	printf("FunctionSet\n");
 	bool DL = command[static_cast<uint8_t>(Command::D4)];
 	bool N = command[static_cast<uint8_t>(Command::D3)];
 	bool F = command[static_cast<uint8_t>(Command::D2)];
@@ -226,21 +182,18 @@ void LCDEmulator::FunctionSet(command_t command) {
 }
 
 void LCDEmulator::SetCGRAMAddress(command_t command) {
-	printf("SetCGRAMAddress\n");
 	uint8_t address = command.to_ulong() & 0b111111;
 	CGRAMAddress = address;
 	setCGRAMAddress = true;
 }
 
 void LCDEmulator::SetDDRAMAddress(command_t command) {
-	printf("SetDDRAMAddress\n");
 	uint8_t address = command.to_ulong() & 0b1111111;
 	DDRAMAddress = address;
 	setCGRAMAddress = false;
 }
 
 void LCDEmulator::ReadBusyFlagAndAddress(command_t command) {
-	printf("ReadBusyFlagAndAddress\n");
 	// db 0-6: address counter
 	// db 7: busy flag
 	data_bus_t db;
@@ -250,7 +203,6 @@ void LCDEmulator::ReadBusyFlagAndAddress(command_t command) {
 }
 
 void LCDEmulator::WriteDataToRAM(command_t command) {
-	printf("WriteDataToRAM\n");
 	uint8_t data = command.to_ulong() & 0xff;
 	if (setCGRAMAddress) {
 		if (CGRAMAddress > 63)
@@ -265,7 +217,6 @@ void LCDEmulator::WriteDataToRAM(command_t command) {
 }
 
 void LCDEmulator::ReadDataFromRAM(command_t command) {
-	printf("ReadDataFromRAM\n");
 	if (setCGRAMAddress) {
 		if (CGRAMAddress > 63)
 			throw std::runtime_error("CGRAMAddress out of bounds");
