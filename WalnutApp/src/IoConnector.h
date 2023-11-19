@@ -25,11 +25,13 @@ public:
 	void Reset() {
 		for (int i = 0; i < NUM_PINS; i++) {
 			auto& [name, pin, val] = m_pins[i];
-			emulator.BiDisconnectIrq(m_irqs + i, emulator.GetIrq(name, pin));
+			if (auto irq = emulator.GetIrq(name, pin); irq != nullptr)
+				emulator.BiDisconnectIrq(m_irqs + i, irq);
 		}
 	}
 
 	void Connect(std::array<connector_t, NUM_PINS> pins) {
+		Reset();
 		for (int i = 0; i < NUM_PINS; i++) {
 			m_pins[i] = pins[i];
 			auto& [name, pin, val] = pins[i];
