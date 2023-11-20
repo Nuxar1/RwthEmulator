@@ -232,7 +232,7 @@ struct io_to_mega_dnd_t {
 };
 
 struct mega_to_io_dnd_t {
-	connector_t* connector;
+	const connector_t* connector;
 	std::bitset<8> mask;
 	bool reverse;
 	int start_pin;
@@ -293,7 +293,7 @@ protected:
 			}
 			int num_selected = end - start;
 
-			io_to_mega_dnd_t* payload = new io_to_mega_dnd_t{ &m_connectable[index], GetMask(), m_names, std::bind(&Connectable::Reconnect, this), m_reversed, start, end };
+			io_to_mega_dnd_t* payload = new io_to_mega_dnd_t{ m_connectable.data(), GetMask(), m_names, std::bind(&Connectable::Reconnect, this), m_reversed, start, end};
 			ImGui::SetDragDropPayload("DND_IO_TO_MEGA", payload, sizeof(io_to_mega_dnd_t));
 
 
@@ -346,7 +346,7 @@ protected:
 		// draw the pins as drag and drop sources
 		const auto pin = [&](int index) {
 			auto& [port, pin, default_value] = m_connectable[index];
-			ImGui::Selectable(std::format("{}{}", port, pin).c_str(), &m_selected[index], ImGuiSelectableFlags_DontClosePopups, ImVec2(20.f, 20.f));
+			ImGui::Selectable(std::format("{}{}##pin{}", port, pin, index).c_str(), &m_selected[index], ImGuiSelectableFlags_DontClosePopups, ImVec2(20.f, 20.f));
 
 			if (GetMask().any())
 				DnDSource(index);
@@ -367,7 +367,7 @@ class EvalBoard : public Walnut::Layer
 {
 	const char* m_names[4][8] = { 0 };
 	bool m_selected[4][8] = { 0 };
-	connector_t m_connectable[4][8] = {
+	static constexpr connector_t m_connectable[4][8] = {
 		{ { 'A', 0, 0 }, { 'A', 1, 0 }, { 'A', 2, 0 }, { 'A', 3, 0 }, { 'A', 4, 0 }, { 'A', 5, 0 }, { 'A', 6, 0 }, { 'A', 7, 0 } },
 		{ { 'B', 0, 0 }, { 'B', 1, 0 }, { 'B', 2, 0 }, { 'B', 3, 0 }, { 'B', 4, 0 }, { 'B', 5, 0 }, { 'B', 6, 0 }, { 'B', 7, 0 } },
 		{ { 'C', 0, 0 }, { 'C', 1, 0 }, { 'C', 2, 0 }, { 'C', 3, 0 }, { 'C', 4, 0 }, { 'C', 5, 0 }, { 'C', 6, 0 }, { 'C', 7, 0 } },
@@ -453,6 +453,27 @@ private:
 		}
 	}
 
+	void DnDTarget(int port_index, int pin_index) {
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_IO_TO_MEGA")) {
+				IM_ASSERT(payload->DataSize == sizeof(io_to_mega_dnd_t));
+				io_to_mega_dnd_t payload_n = *(const io_to_mega_dnd_t*)payload->Data;
+
+				int num_selected = payload_n.end_pin - payload_n.start_pin;
+
+				for (int i = 0; i < num_selected; i++) {
+					int j = payload_n.reverse ? payload_n.start_pin + num_selected - i - 1 : i + payload_n.start_pin;
+
+					if (payload_n.mask[j] && pin_index + i < 8) {
+						payload_n.connector[j] = m_connectable[port_index][pin_index + i];
+					}
+				}
+				payload_n.reconnect();
+			}
+			ImGui::EndDragDropTarget();
+		}
+	}
+
 	void DrawPort(int port_index) {
 		// draw the pins as drag and drop sources
 		const auto pin = [&](int index) {
@@ -463,7 +484,8 @@ private:
 			if (GetMask(port_index).any())
 				DnDSource(port_index, index);
 
-			//DnDTarget(port_index);
+			DnDTarget(port_index, index);
+
 			};
 
 		for (int i = 0; i < 8; i++) {
@@ -525,21 +547,14 @@ private:
 	}
 };
 
-class ButtonsLayer : public Walnut::Layer
+class ButtonsLayer : public Walnut::Layer, Connectable<4>
 {
-	const char* m_names[4] = { "B1", "B2", "B3", "B4" };
-	// https://stackoverflow.com/a/8192275
-	std::array<connector_t, 4> m_buttons = { { { 'C', 0, 1 }, { 'C', 1, 1 }, { 'C', 6, 1 }, { 'C', 7, 1 } } };
-	IoConnector<4> m_io;
+	static constexpr const char* m_names[4] = { "B1", "B2", "B3", "B4" };
+	static constexpr std::array<connector_t, 4> m_buttons = { { { 'C', 0, 1 }, { 'C', 1, 1 }, { 'C', 6, 1 }, { 'C', 7, 1 } } };
 public:
 	bool m_open = true;
 
-	ButtonsLayer() : Walnut::Layer(), m_io(g_emulator, m_names) {
-		auto init_buttons = [this]() -> void {
-			m_io.Connect(m_buttons);
-			};
-		g_emulator.OnReset(init_buttons);
-	}
+	ButtonsLayer() : Walnut::Layer(), Connectable<4>(m_names, m_buttons) {}
 	virtual void OnUIRender() override {
 		if (!m_open) return;
 		ImGui::Begin("Buttons", &m_open);
@@ -557,7 +572,7 @@ public:
 			auto result = ImGui::Button(name);
 			if (result) {
 				value = !value;
-				m_io.SetPin(index, !value);
+				m_connector.SetPin(index, !value);
 			}
 			ImGui::PopStyleColor(3);
 			return result;
@@ -575,24 +590,25 @@ public:
 
 		ImGui::EndGroupPanel();
 
+		DrawConnectable();
+
 		ImGui::End();
 	}
 private:
 	bool m_buttonsPressed[4] = { 0 };
 };
 
-class LCDLayer : public Walnut::Layer
+class LCDLayer : public Walnut::Layer, Connectable<7>
 {
-	const char* m_lcd_pins[7] = { "=lcd.D4", "=lcd.D5", "=lcd.D6", "=lcd.D7", "=lcd.RS", "=lcd.EN", "=lcd.RW" };
-	std::array<connector_t, 7> m_lcd_connection = { { { 'B', 0, 1 }, { 'B', 1, 1 }, { 'B', 2, 1 }, { 'B', 3, 1 }, { 'B', 4, 1 }, { 'B', 5, 1 }, { 'B', 6, 1 } } };
-	IoConnector<7> m_io;
+	static constexpr const char* m_lcd_pins[7] = { "=lcd.D4", "=lcd.D5", "=lcd.D6", "=lcd.D7", "=lcd.RS", "=lcd.EN", "=lcd.RW" };
+	static constexpr std::array<connector_t, 7> m_lcd_connection = { { { 'B', 0, 1 }, { 'B', 1, 1 }, { 'B', 2, 1 }, { 'B', 3, 1 }, { 'B', 4, 1 }, { 'B', 5, 1 }, { 'B', 6, 1 } } };
 	LCDEmulator m_lcd;
 public:
 	bool m_open = true;
 
-	LCDLayer() : Walnut::Layer(), m_io(g_emulator, m_lcd_pins), m_lcd(g_emulator, m_io) {
+	LCDLayer() : Walnut::Layer(), Connectable<7>(m_lcd_pins, m_lcd_connection), m_lcd(g_emulator, m_connector) {
 		auto init_lcd = [this]() -> void {
-			m_io.Connect(m_lcd_connection);
+			m_connector.Connect(m_lcd_connection);
 			m_lcd.Reset();
 			};
 		g_emulator.OnReset(init_lcd);
@@ -604,6 +620,8 @@ public:
 		ImGui::BeginGroupPanel("LCD");
 
 		DrawLCD();
+
+		DrawConnectable();
 
 		ImGui::EndGroupPanel();
 
