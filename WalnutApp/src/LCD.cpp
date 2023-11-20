@@ -22,6 +22,38 @@ void LCDEmulator::EnablePulse(avr_irq_t* irq, uint32_t value, void* param) {
 			}, lcd);
 }
 
+void LCDEmulator::Reset() {
+	// set all registers to 0
+	memset(DDRAM, 0, sizeof(DDRAM));
+	memset(CGRAM, 0, sizeof(CGRAM));
+	DDRAMAddress = 0;
+	setCGRAMAddress = false;
+	cursorAddress = 0;
+	displayShift = 0;
+	setCGRAMAddress = false;
+	initCounter = 0;
+	busy = false;
+	fourBitMode = false;
+	twoLineMode = false;
+	fiveBySevenDots = false;
+	display = false;
+	cursor = false;
+	blink = false;
+	increment = false;
+	shift = false;
+	lowNibble = 0;
+	highNibble = 0;
+	nibbleSelect = false;
+	RS = false;
+	RW = false;
+	EN = false;
+	lowNibbleToWrite = 0;
+	pendingWrite = false;
+
+	// when reset the callbacks are cleared so we need to add them again
+	io.AddCallback((io_pin_t)Port::EN, EnablePulse, this);
+}
+
 void LCDEmulator::Tick() {
 	// dont care about timings atm so just do everything in one tick
 

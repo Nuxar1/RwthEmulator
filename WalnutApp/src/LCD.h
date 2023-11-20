@@ -48,6 +48,7 @@ public:
 	LCDEmulator(Emulator& emulator, IoConnector<7>& io);
 
 	std::array<std::array<character_t, 16>, 2> GetDisplay();
+	void Reset();
 private:
 	static void EnablePulse(avr_irq_t* irq, uint32_t value, void* param);
 	void Tick();

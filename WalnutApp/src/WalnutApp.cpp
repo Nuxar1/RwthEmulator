@@ -40,6 +40,7 @@ public:
 		ImGui::Text("PC: %02X", g_emulator.GetPc().to_ulong());
 		for (int i = 0; i < 32; i++) {
 			ImGui::Text("R%d: %s", i, g_emulator.GetRegister(i).to_string().c_str());
+			if (i % 2 == 0) ImGui::SameLine();
 		}
 		ImGui::EndGroupPanel();
 
@@ -220,25 +221,273 @@ private:
 	}
 };
 
-class LEDsLayer : public Walnut::Layer
+struct io_to_mega_dnd_t {
+	connector_t* connector;
+	std::bitset<8> mask;
+	const char* const* m_names;
+	std::function<void()> reconnect;
+	bool reverse;
+	int start_pin;
+	int end_pin;
+};
+
+struct mega_to_io_dnd_t {
+	connector_t* connector;
+	std::bitset<8> mask;
+	bool reverse;
+	int start_pin;
+	int end_pin;
+};
+
+template <int NUM_PINS>
+class Connectable {
+	bool m_selected[NUM_PINS];
+	std::array<connector_t, NUM_PINS> m_connectable;
+	const char* const* m_names;
+	bool m_reversed = false;
+
+	std::bitset<8> GetMask() {
+		std::bitset<8> mask;
+		for (int i = 0; i < NUM_PINS; i++) {
+			if (m_selected[i])
+				mask.set(i);
+		}
+		return mask;
+
+	}
+protected:
+	IoConnector<NUM_PINS> m_connector;
+
+	Connectable(const char* const names[NUM_PINS], std::optional<std::array<connector_t, NUM_PINS>> default_connections = std::nullopt) : m_connector(g_emulator, (const char**)names), m_names(names) {
+		if (default_connections.has_value())
+			m_connectable = default_connections.value();
+		else {
+			for (int i = 0; i < NUM_PINS; i++) {
+				m_connectable[i] = { 'A', i, 0 };
+			}
+		}
+		memset(m_selected, 1, NUM_PINS * sizeof(bool));
+		auto init_connectable = [this]() -> void {
+			m_connector.Connect(m_connectable);
+			};
+		g_emulator.OnReset(init_connectable);
+	}
+
+	void Reconnect() {
+		m_connector.Connect(m_connectable);
+	}
+
+	void DnDSource(int index) {
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+			ImGui::Text("Press space to flip.");
+			ImGui::Text("Drop on ATmega pin");
+			if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+				m_reversed = !m_reversed;
+			}
+			int start = index;
+			int end = start;
+			// find last selected pin
+			for (int i = index; i < NUM_PINS; i++) {
+				if (m_selected[i])
+					end = i + 1;
+			}
+			int num_selected = end - start;
+
+			io_to_mega_dnd_t* payload = new io_to_mega_dnd_t{ &m_connectable[index], GetMask(), m_names, std::bind(&Connectable::Reconnect, this), m_reversed, start, end };
+			ImGui::SetDragDropPayload("DND_IO_TO_MEGA", payload, sizeof(io_to_mega_dnd_t));
+
+
+			if (ImGui::BeginTable("##DND_IO_TO_MEGA", num_selected, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+				for (int i = start; i < end; i++) {
+					int j = m_reversed ? start + end - i - 1 : i;
+
+					ImGui::TableNextColumn();
+
+					if (m_selected[j]) {
+						auto& [port, pin, default_value] = m_connectable[j];
+						ImGui::Text(std::format("{}{}", port, pin).c_str());
+					}
+					else {
+						ImGui::Text("   ");
+					}
+				}
+				ImGui::EndTable();
+			}
+
+			ImGui::EndDragDropSource();
+		}
+	}
+
+	void DnDTarget(int index) {
+		if (ImGui::BeginDragDropTarget()) {
+			if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_MEGA_TO_IO")) {
+				IM_ASSERT(payload->DataSize == sizeof(mega_to_io_dnd_t));
+				mega_to_io_dnd_t payload_n = *(const mega_to_io_dnd_t*)payload->Data;
+
+				int num_selected = payload_n.end_pin - payload_n.start_pin;
+
+				for (int i = 0; i < num_selected; i++) {
+					int j = payload_n.reverse ? payload_n.start_pin + num_selected - i - 1 : i + payload_n.start_pin;
+
+					if (payload_n.mask[j] && index + i < NUM_PINS) {
+						m_connectable[index + i] = payload_n.connector[j];
+					}
+				}
+				Reconnect();
+			}
+			ImGui::EndDragDropTarget();
+		}
+	}
+
+	void DrawConnectable() {
+		// draw pins each being drag and drop sources
+		ImGui::BeginGroupPanel("Connectable");
+
+		// draw the pins as drag and drop sources
+		const auto pin = [&](int index) {
+			auto& [port, pin, default_value] = m_connectable[index];
+			ImGui::Selectable(std::format("{}{}", port, pin).c_str(), &m_selected[index], ImGuiSelectableFlags_DontClosePopups, ImVec2(20.f, 20.f));
+
+			if (GetMask().any())
+				DnDSource(index);
+
+			DnDTarget(index);
+			};
+
+		for (int i = 0; i < NUM_PINS; i++) {
+			pin(i);
+			ImGui::SameLine();
+		}
+
+		ImGui::EndGroupPanel();
+	}
+};
+
+class EvalBoard : public Walnut::Layer
 {
-	const char* m_names[8] = { "LED1", "LED2", "LED3", "LED4", "LED5", "LED6", "LED7", "LED8" };
-	std::array<connector_t, 8> m_leds = { { { 'A', 0, 1 }, { 'A', 1, 1 }, { 'A', 2, 1 }, { 'A', 3, 1 }, { 'A', 4, 1 }, { 'A', 5, 1 }, { 'A', 6, 1 }, { 'A', 7, 1 } } };
-	IoConnector<8> m_io;
+	const char* m_names[4][8] = { 0 };
+	bool m_selected[4][8] = { 0 };
+	connector_t m_connectable[4][8] = {
+		{ { 'A', 0, 0 }, { 'A', 1, 0 }, { 'A', 2, 0 }, { 'A', 3, 0 }, { 'A', 4, 0 }, { 'A', 5, 0 }, { 'A', 6, 0 }, { 'A', 7, 0 } },
+		{ { 'B', 0, 0 }, { 'B', 1, 0 }, { 'B', 2, 0 }, { 'B', 3, 0 }, { 'B', 4, 0 }, { 'B', 5, 0 }, { 'B', 6, 0 }, { 'B', 7, 0 } },
+		{ { 'C', 0, 0 }, { 'C', 1, 0 }, { 'C', 2, 0 }, { 'C', 3, 0 }, { 'C', 4, 0 }, { 'C', 5, 0 }, { 'C', 6, 0 }, { 'C', 7, 0 } },
+		{ { 'D', 0, 0 }, { 'D', 1, 0 }, { 'D', 2, 0 }, { 'D', 3, 0 }, { 'D', 4, 0 }, { 'D', 5, 0 }, { 'D', 6, 0 }, { 'D', 7, 0 } }
+	};
+	bool m_reversed = false;
 public:
 	bool m_open = true;
 
-	LEDsLayer() : Walnut::Layer(), m_io(g_emulator, m_names) {
-		auto init_leds = [this]() -> void {
-			m_io.Connect(m_leds);
-			};
-		g_emulator.OnReset(init_leds);
+	EvalBoard() : Walnut::Layer() {
+		memset(m_selected, 1, 4 * 8 * sizeof(bool));
 	}
+
+	virtual void OnUIRender() override {
+		if (!m_open) return;
+		ImGui::Begin("Eval Board", &m_open);
+
+		const auto port = [&](int index) {
+			ImGui::BeginGroupPanel(std::format<char>("Port {}", 'A' + index).c_str());
+			DrawPort(index);
+			ImGui::EndGroupPanel();
+			};
+
+		for (int i = 0; i < 4; i++) {
+			ImGui::PushID(i);
+			port(i);
+			ImGui::PopID();
+			if ((i % 2) == 0)
+				ImGui::SameLine();
+		}
+
+		ImGui::End();
+	}
+private:
+	std::bitset<8> GetMask(int port_index) {
+		std::bitset<8> mask;
+		for (int i = 0; i < 8; i++) {
+			if (m_selected[port_index][i])
+				mask.set(i);
+		}
+		return mask;
+
+	}
+
+	void DnDSource(int port_index, int pin_index) {
+		if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+			ImGui::Text("Press space to flip.");
+			ImGui::Text("Drop on IO pin");
+			if (ImGui::IsKeyPressed(ImGuiKey_Space, false)) {
+				m_reversed = !m_reversed;
+			}
+			int start = pin_index;
+			int end = start;
+			// find last selected pin
+			for (int i = pin_index; i < 8; i++) {
+				if (m_selected[port_index][i])
+					end = i + 1;
+			}
+			int num_selected = end - start;
+
+			mega_to_io_dnd_t* payload = new mega_to_io_dnd_t{ &m_connectable[port_index][0], GetMask(port_index), m_reversed, start, end };
+			ImGui::SetDragDropPayload("DND_MEGA_TO_IO", payload, sizeof(mega_to_io_dnd_t));
+
+
+			if (ImGui::BeginTable("##DND_MEGA_TO_IO", num_selected, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+				for (int i = start; i < end; i++) {
+					int j = m_reversed ? start + end - i - 1 : i;
+
+					ImGui::TableNextColumn();
+
+					if (m_selected[port_index][j]) {
+						auto& [port, pin, default_value] = m_connectable[port_index][j];
+						ImGui::Text(std::format("{}{}", port, pin).c_str());
+					}
+					else {
+						ImGui::Text("   ");
+					}
+				}
+				ImGui::EndTable();
+			}
+
+			ImGui::EndDragDropSource();
+		}
+	}
+
+	void DrawPort(int port_index) {
+		// draw the pins as drag and drop sources
+		const auto pin = [&](int index) {
+			const char* name = m_names[port_index][index] ? m_names[port_index][index] : " / ";
+			ImVec2 size = ImGui::CalcTextSize(name);
+			ImGui::Selectable(std::format("{}##port{}{}", name, port_index, index).c_str(), &m_selected[port_index][index], ImGuiSelectableFlags_DontClosePopups, size);
+
+			if (GetMask(port_index).any())
+				DnDSource(port_index, index);
+
+			//DnDTarget(port_index);
+			};
+
+		for (int i = 0; i < 8; i++) {
+			pin(i);
+			ImGui::SameLine();
+		}
+	}
+};
+
+class LEDsLayer : public Walnut::Layer, Connectable<8>
+{
+	static constexpr const char* m_names[8] = { "LED1", "LED2", "LED3", "LED4", "LED5", "LED6", "LED7", "LED8" };
+	static constexpr std::array<connector_t, 8> m_default_connection = { { { 'C', 0, 1 }, { 'C', 1, 1 }, { 'C', 2, 1 }, { 'C', 3, 1 }, { 'C', 4, 1 }, { 'C', 5, 1 }, { 'C', 6, 1 }, { 'C', 7, 1 } } };
+public:
+	bool m_open = true;
+
+	LEDsLayer() : Walnut::Layer(), Connectable<8>(m_names, m_default_connection) {}
+
 	virtual void OnUIRender() override {
 		if (!m_open) return;
 		ImGui::Begin("LEDs", &m_open);
 
 		DrawLEDs();
+		DrawConnectable();
 
 		ImGui::End();
 	}
@@ -267,7 +516,7 @@ private:
 
 			};
 
-		std::bitset<8> led_port = m_io.GetPinMask();
+		std::bitset<8> led_port = m_connector.GetPinMask();
 		for (int i = 0; i < 8; i++) {
 			led(led_port.test(i));
 			ImGui::SameLine();
@@ -344,6 +593,7 @@ public:
 	LCDLayer() : Walnut::Layer(), m_io(g_emulator, m_lcd_pins), m_lcd(g_emulator, m_io) {
 		auto init_lcd = [this]() -> void {
 			m_io.Connect(m_lcd_connection);
+			m_lcd.Reset();
 			};
 		g_emulator.OnReset(init_lcd);
 	}
@@ -449,6 +699,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv) {
 	std::shared_ptr<ButtonsLayer> buttonsLayer = std::make_shared<ButtonsLayer>();
 	std::shared_ptr<LEDsLayer> ledsLayer = std::make_shared<LEDsLayer>();
 	std::shared_ptr<LCDLayer> lcdLayer = std::make_shared<LCDLayer>();
+	std::shared_ptr<EvalBoard> evalBoard = std::make_shared<EvalBoard>();
 
 	if (argc > 1) {
 		std::string path = argv[1];
@@ -463,6 +714,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv) {
 	app->PushLayer(buttonsLayer);
 	app->PushLayer(ledsLayer);
 	app->PushLayer(lcdLayer);
+	app->PushLayer(evalBoard);
 
 	app->SetMenubarCallback([=]() {
 		if (ImGui::BeginMenu("File")) {
@@ -487,6 +739,7 @@ Walnut::Application* Walnut::CreateApplication(int argc, char** argv) {
 			if (ImGui::MenuItem("Buttons")) buttonsLayer->m_open = true;
 			if (ImGui::MenuItem("LEDs")) ledsLayer->m_open = true;
 			if (ImGui::MenuItem("LCD")) lcdLayer->m_open = true;
+			if (ImGui::MenuItem("Eval Board")) evalBoard->m_open = true;
 			ImGui::EndMenu();
 		}
 		});
