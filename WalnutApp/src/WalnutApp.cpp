@@ -330,7 +330,10 @@ protected:
 					int j = payload_n.reverse ? payload_n.start_pin + num_selected - i - 1 : i + payload_n.start_pin;
 
 					if (payload_n.mask[j] && index + i < NUM_PINS) {
-						m_connectable[index + i] = payload_n.connector[j];
+						auto& [port, pin, default_value] = m_connectable[index + i];
+						auto& [new_port, new_pin, new_default_value] = payload_n.connector[j];
+						port = new_port;
+						pin = new_pin;
 					}
 				}
 				Reconnect();
@@ -465,7 +468,10 @@ private:
 					int j = payload_n.reverse ? payload_n.start_pin + num_selected - i - 1 : i + payload_n.start_pin;
 
 					if (payload_n.mask[j] && pin_index + i < 8) {
-						payload_n.connector[j] = m_connectable[port_index][pin_index + i];
+						auto& [port, pin, default_value] = payload_n.connector[j];
+						auto& [new_port, new_pin, new_default_value] = m_connectable[port_index][pin_index + i];
+						port = new_port;
+						pin = new_pin;
 					}
 				}
 				payload_n.reconnect();
@@ -608,7 +614,6 @@ public:
 
 	LCDLayer() : Walnut::Layer(), Connectable<7>(m_lcd_pins, m_lcd_connection), m_lcd(g_emulator, m_connector) {
 		auto init_lcd = [this]() -> void {
-			m_connector.Connect(m_lcd_connection);
 			m_lcd.Reset();
 			};
 		g_emulator.OnReset(init_lcd);
