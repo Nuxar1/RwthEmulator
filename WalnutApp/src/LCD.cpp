@@ -73,7 +73,7 @@ void LCDEmulator::Tick() {
 	command_t command = GetCommand();
 	Instruction instruction = GetInstruction(command);
 	if (instruction != Instruction::FunctionSet && initCounter < 3)
-		throw std::runtime_error("LCD not initialized");
+		return emulator.Exception("LCD not initialized");
 
 	switch (instruction) {
 	case Instruction::DisplayClear:
@@ -210,7 +210,7 @@ void LCDEmulator::FunctionSet(command_t command) {
 	fiveBySevenDots = !F || twoLineMode;
 
 	if (!fourBitMode)
-		throw std::runtime_error("8 bit mode not supported");
+		return emulator.Exception("8 bit mode not supported");
 }
 
 void LCDEmulator::SetCGRAMAddress(command_t command) {
@@ -238,11 +238,11 @@ void LCDEmulator::WriteDataToRAM(command_t command) {
 	uint8_t data = command.to_ulong() & 0xff;
 	if (setCGRAMAddress) {
 		if (CGRAMAddress > 63)
-			throw std::runtime_error("CGRAMAddress out of bounds");
+			return emulator.Exception("CGRAMAddress out of bounds");
 		CGRAM[CGRAMAddress] = data;
 	} else {
 		if (DDRAMAddress > 79)
-			throw std::runtime_error("DDRAMAddress out of bounds");
+			return emulator.Exception("DDRAMAddress out of bounds");
 		DDRAM[DDRAMAddress] = data;
 	}
 	IncShift();
@@ -251,11 +251,11 @@ void LCDEmulator::WriteDataToRAM(command_t command) {
 void LCDEmulator::ReadDataFromRAM(command_t command) {
 	if (setCGRAMAddress) {
 		if (CGRAMAddress > 63)
-			throw std::runtime_error("CGRAMAddress out of bounds");
+			return emulator.Exception("CGRAMAddress out of bounds");
 		WritePin(CGRAM[CGRAMAddress]);
 	} else {
 		if (DDRAMAddress > 79)
-			throw std::runtime_error("DDRAMAddress out of bounds");
+			return emulator.Exception("DDRAMAddress out of bounds");
 		WritePin(DDRAM[DDRAMAddress]);
 	}
 	IncShift();
@@ -347,8 +347,6 @@ character_t LCDEmulator::ReadCharacterFromData(address_t address, const uint8_t*
 }
 
 character_t LCDEmulator::GetCharacter(address_t address) {
-	if (address > 79)
-		throw std::runtime_error("Address out of bounds");
 	address_t cg_address = DDRAM[address + displayShift];
 	if (cg_address > 16)
 		return ReadCharacterFromData(cg_address - 16, CGROM);

@@ -47,6 +47,8 @@ public:
 
 	// called AFTER the emulator is reset (so its used for re-initializing IO modules)
 	void OnReset(std::function<void()> callback) { reset_callbacks.push_back(callback); }
+
+	void Exception(const char* message);
 private:
 	static constexpr char CharToUpper(char c) { return (c >= 'a' && c <= 'z') ? c - ('a' - 'A') : c; }
 	static constexpr char GetPortName(uint8_t index) { return (index / 3) + 'A'; } // 3 ports per letter (DDR, PORT, PIN)

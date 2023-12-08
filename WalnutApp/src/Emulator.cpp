@@ -121,14 +121,12 @@ void Emulator::RegisterTimer(avr_cycle_count_t when, avr_cycle_timer_t timer, vo
 	avr_cycle_timer_register(avr, when, t, param);
 }
 
-void Emulator::Tick() {
-	try {
-		avr_run(avr);
-	} catch (std::exception& e) {
-		// in new thread since we cant join our own thread
-		std::thread([this, e]() {
-			Reset();
-			}).detach();
-			printf("Exception: %s\n", e.what());
-	}
+void Emulator::Exception(const char* message) {
+	printf("Exception: %s\n", message);
+	Reset();
 }
+
+void Emulator::Tick() {
+	avr_run(avr);
+}
+
