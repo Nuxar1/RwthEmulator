@@ -7,6 +7,8 @@
 #include "LCD.h"
 #include "IoConnector.h"
 
+#include <optional>
+#include <format>
 #include <GLFW/glfw3.h>
 #if defined(_WIN32) || defined(_WIN64)
 #define NOMINMAX
@@ -37,7 +39,7 @@ public:
 
 
 		ImGui::BeginGroupPanel("Registers");
-		ImGui::Text("PC: %02X", g_emulator.GetPc().to_ulong());
+		ImGui::Text("PC: %02X", (uint16_t)g_emulator.GetPc().to_ulong());
 		for (int i = 0; i < 32; i++) {
 			ImGui::Text("R%d: %s", i, g_emulator.GetRegister(i).to_string().c_str());
 			if (i % 2 == 0) ImGui::SameLine();

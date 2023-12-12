@@ -62,9 +62,9 @@ public:
 		}
 	}
 
-	bool GetPin(io_pin_t pin) {
-		auto& [name, pin, _] = m_pins[pin];
-		emulator.GetPin(name, pin);
+	bool GetPin(io_pin_t io_pin) {
+		auto& [name, pin, _] = m_pins[io_pin];
+		return emulator.GetPin(name, pin);
 	}
 
 	std::bitset<NUM_PINS> GetPinMask() {
