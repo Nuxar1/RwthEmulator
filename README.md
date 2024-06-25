@@ -1,6 +1,6 @@
 # RwthEmulator
 
-RwthEmulator is an AVR microchip emulator built to emulate a custom PCB using an ATmega644 microcontroller (or any other supported by simavr). This versatile tool allows developers to simulate various microcontroller features, such as LCD (4-bit DB only), buttons with interrupt support, and LEDs. Powered by simavr for CPU emulation and equipped with the Walnut GUI, RwthEmulator simplifies AVR microcontroller development. While it currently requires port configuration within the source code, I have plans to introduce runtime port changes in future releases, making the emulation process even more flexible and user-friendly.
+RwthEmulator is an AVR microchip emulator built to emulate a custom PCB using an ATmega644 microcontroller (or any other supported by simavr). This versatile tool allows developers to simulate various microcontroller features, such as LCD (4-bit DB only), buttons with interrupt support, and LEDs. Powered by simavr for CPU emulation and equipped with the Walnut GUI, RwthEmulator simplifies AVR microcontroller development. The port configuration can now also be configured fully at runtime, with control over each single pin of the ports!
 
 
 https://github.com/Nuxar1/RwthEmulator/assets/67655795/494ddeb5-8ea3-4c5f-9cc4-ffc6aba51c7e
@@ -22,7 +22,6 @@ Once you've cloned, run `scripts/Setup.bat` to generate Visual Studio 2022 solut
 
 ## Todo
 
-- Runime pinout configuration
 - Add more modules
 - Disassembler
 - Breakpoints and step in/over/out
