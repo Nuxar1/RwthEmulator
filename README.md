@@ -8,6 +8,11 @@ https://github.com/Nuxar1/RwthEmulator/assets/67655795/494ddeb5-8ea3-4c5f-9cc4-f
 
 Currently supports Windows **and linux** - with macOS once Walnut supports it. Setup scripts support Visual Studio 2022 by default.
 
+## Disclaimer
+This simulator is only meant for quick and easy testing.
+As it is only a simulator it might not always behave exactly like the real thing,
+especially when it comes to timings.
+
 ## Requirements
 - [Visual Studio 2022](https://visualstudio.com) (not strictly required, however included setup scripts only support this)
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) (preferably a recent version)
